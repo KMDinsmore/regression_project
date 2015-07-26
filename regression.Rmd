@@ -1,0 +1,100 @@
+---
+title: "Regression"
+output: html_document
+---
+```{r, echo=FALSE, results='hide',message=FALSE}
+require(ggplot2)
+require(VIF)
+```
+##Summary
+I work for Motor Trend, a magazine about the automobile industry. Looking at a data set of a collection of cars, my editor interested in exploring the relationship between a set of variables and miles per gallon (MPG) (outcome). He is particularly interested in the following two questions:
+
+    - "Is an automatic or manual transmission better for MPG"
+    - "Quantify the MPG difference between automatic and manual transmissions"
+##A Look at the coefficients
+Let's take a quick look at the coefficients shows us that the average mpg for automatic transmissions (in this case the intercept since automatics are given a default value of zero, and manuals one):
+```{r}
+summary(lm(mpg ~ am, data=mtcars))$coef
+```
+From this we can see that the automatics have an average of ~17 (since they are the intercept), while the manuals have an average of ~24 (intercept plus am) Please see lecture on dummy variables time stamp 20:49 if this does not make sense.
+
+So clearly, manual transmissions are clearly better in terms of mileage, right?  Well, let's take a closer look.
+
+##Exploratory Data Analysis
+First, let's take a look at a graph of vehicles, divided by transmission types plotting weight (a likely factor in a car's mileage) and miles per gallon with the number of cylinders divided by color.  What do we see?  It appears that almost all the manuals weigh less, and that at similar weights automatics perform better. Please see figure one in appendix.
+
+##Models (and their Selection)
+ A quick look at the variables from mtcars yields the following:
+```{r}
+names(mtcars)
+```
+Now if we compare these predictors in regards to mpg, we see the following
+```{r}
+sort(abs(coef(lm(mpg~., mtcars))), decreasing = TRUE)
+```
+
+###Multiple Models Fit
+From this, we can see that weight is far and away the best predictor, but, let's take a look at some multivariable models and their residuals as well:
+```{r, echo = FALSE}
+results <- as.data.frame (cbind(c("Weight", "wt+cyl", "wt+drat", "wt+gear"),  c(mean(resid(lm(mpg~wt, data = mtcars))), mean(resid(lm(mpg~wt+cyl, data = mtcars))), mean(resid(lm(mpg~wt+drat, data = mtcars))), mean(resid(lm(mpg~wt+gear, data = mtcars))))))
+colnames(results)<-c("Model Type", "Mean of Residuals")
+print(results)
+
+```
+What we see is that all of the results are have tiny mean residuals, indicating to me that weight alone should be sufficient as a predictor.
+Using the linear regression with weight as a predictor and mpg as a product we can examine the residual plot in the appendix (figure 2).
+
+Now, lets take a look at the models themselves :
+```{r, echo = FALSE}
+automatics<-mtcars$am==0
+manuals<-mtcars$am==1
+aut_co <-coef(lm(mpg~wt, mtcars[automatics,]))
+man_co <- coef(lm(mpg~wt, mtcars[manuals,]))
+print("Automatics:")
+print(aut_co)
+print("Manuals:")
+print(man_co)
+```
+Certainly appears to be food for thought, we will discuss these in the next section.
+
+##Conclusions
+Looking at our models, we see that although the the intercept for manuals is very high, so is the slope.  While with automatics, the intercept starts signifigantly lower but the slope is much lower as well.  What this means is that at low weights manuals will tend to have better gas mileage, but as the number of pounds increases automatics tend to do better
+Examining our residual plot (with fitted models and confidence intervals), we see that this seems to be the case.
+What does this mean?  Well, it means that the original question could have been more specific.  If you are looking for a car and the sole criteria is gas mileage, you will want a manual transmission.  However, perhaps you are looking for something with a bit more leg room.  In that case, the odds are that you want an automatic.
+
+What this means, at the very least is that the question is incomplete and that we should probably do articles (lightweight value autos and midsize or bigger) or find a new topic.  Time to let the editor know.
+
+#Appendix
+
+
+```{r, echo=FALSE}
+p<-ggplot(mtcars, aes(x=wt, y=mpg, colour=factor(cyl)))+ facet_wrap(~am, nrow=2) +
+    geom_point(size=4)  + 
+        scale_colour_manual(breaks = c("4", "6", "8"),
+                            labels = c("4", "6", "8"),
+                            values = c("#E69F00", "#56B4E9", "#009E73"))
+p <- p+ggtitle("FIG 1: Transmission:Automatic(0) vs. Manual(0")
+print(p)
+```
+
+
+```{r, echo=FALSE}
+
+
+autos<-coef(lm(mpg ~ wt, data = mtcars[automatics,]))
+mans<-coef(lm(mpg ~ wt, data = mtcars[manuals,]))
+
+q<-ggplot(data=mtcars, aes(x=wt, y=mpg, colour=factor(am))) +
+    geom_point(size=4) + 
+    scale_colour_manual(breaks = c("0", "1"),
+                    labels = c("Automatic", "Manual"),
+                    values = c("#E69F00", "#56B4E9"))+ 
+    geom_abline(slope=as.numeric(autos[2]), intercept=as.numeric(autos[1]), 
+                color="#E69F00", size=1)+ 
+    geom_abline(slope=as.numeric(mans[2]), intercept=as.numeric(mans[1]), 
+                color="#56B4E9", size=1)+
+    stat_smooth(method="lm", aes(fill = factor(am)))
+
+q <- q+ggtitle("FIG 2: MPG vs. Weight model, plus residuals")
+print(q)
+```
